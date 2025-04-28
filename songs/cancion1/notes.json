@@ -1,0 +1,26 @@
+{
+    "title": "Estrellita",
+    "artist": "Tradicional",
+    "bpm": 100,
+    "notes": [
+        { "startTime": 1000, "duration": 500, "pitchMidi": 60, "lyric": "Es" },
+        { "startTime": 1500, "duration": 500, "pitchMidi": 60, "lyric": "tre" },
+        { "startTime": 2000, "duration": 500, "pitchMidi": 67, "lyric": "lli" },
+        { "startTime": 2500, "duration": 500, "pitchMidi": 67, "lyric": "ta" },
+        { "startTime": 3000, "duration": 500, "pitchMidi": 69, "lyric": "dón" },
+        { "startTime": 3500, "duration": 500, "pitchMidi": 69, "lyric": "de" },
+        { "startTime": 4000, "duration": 1000, "pitchMidi": 67, "lyric": "eres" },
+        { "startTime": 5000, "duration": 500, "pitchMidi": 65, "lyric": "qué" },
+        { "startTime": 5500, "duration": 500, "pitchMidi": 65, "lyric": "tan" },
+        { "startTime": 6000, "duration": 500, "pitchMidi": 64, "lyric": "le" },
+        { "startTime": 6500, "duration": 500, "pitchMidi": 64, "lyric": "jos" },
+        { "startTime": 7000, "duration": 1000, "pitchMidi": 62, "lyric": "estás" },
+        { "startTime": 8000, "duration": 500, "pitchMidi": 60, "lyric": "me" },
+        { "startTime": 8500, "duration": 500, "pitchMidi": 60, "lyric": "pre" },
+        { "startTime": 9000, "duration": 500, "pitchMidi": 67, "lyric": "gun" },
+        { "startTime": 9500, "duration": 500, "pitchMidi": 67, "lyric": "to" },
+        { "startTime": 10000, "duration": 500, "pitchMidi": 69, "lyric": "qué" },
+        { "startTime": 10500, "duration": 500, "pitchMidi": 69, "lyric": "ser" },
+        { "startTime": 11000, "duration": 1000, "pitchMidi": 67, "lyric": "ás" }
+    ]
+} 
