@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Canto Interactivo</title>
+    <script src="lib/meyda.min.js"></script>
+    <style>
+        /* Reseteo Básico y Variables CSS */
+        :root {
+            --bg-dark-purple: #1a103c;
+            --bg-medium-purple: #2c1e5a;
+            --bg-light-purple: #4a3a8a;
+            --accent-green: #33ff99;
+            --accent-green-dark: #28cc7a;
+            --accent-red: #f44336;
+            --accent-red-dark: #da190b;
+            --accent-blue: #2196F3;
+            --accent-blue-dark: #0b7dda;
+            --accent-yellow: #ffeb3b;
+            --text-light: #f0f0f0;
+            --text-medium: #b0b0c0;
+            --text-dark: #111;
+            --card-gradient-1: linear-gradient(135deg, #4a3a8a, #3a2a7a);
+            --card-gradient-2: linear-gradient(135deg, #6a4a9a, #4a2a8a);
+            --selected-border: 3px solid var(--accent-green);
+            --game-bg: linear-gradient(to bottom, #1c103f, #110a28); /* Fondo para pantalla de juego */
+            --note-hit-color: #ffeb3b; /* Amarillo para hit line */
+            --pitch-indicator-color: #ff4d4d; /* Rojo/Rosa para indicador de pitch */
+            --progress-bar-bg: #444;
+            --progress-bar-fill: var(--accent-green);
+            --button-bg: #333;
+            --button-hover-bg: #444;
+            --button-red: var(--accent-red);
+            --button-red-hover: var(--accent-red-dark);
+            --button-blue: var(--accent-blue);
+            --button-blue-hover: var(--accent-blue-dark);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-dark-purple); /* Fondo base más simple */
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Gestión de Pantallas */
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 15px; /* Menos padding horizontal para más espacio */
+            background-color: rgba(44, 30, 90, 0.6); /* Ajustar transparencia si es necesario */
+            backdrop-filter: blur(3px);
+            border-radius: 15px;
+            width: 95%;
+            max-width: 1100px; /* Aumentar ancho máximo */
+            border: 1px solid rgba(74, 58, 138, 0.3);
+            margin: 15px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+            position: relative; /* Para elementos absolutos dentro */
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        /* --- Pantalla de Inicio Estilo Imagen --- */
+        #start-screen {
+            background: var(--game-bg); /* Usar el fondo de juego también aquí */
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(74, 58, 138, 0.5);
+            backdrop-filter: blur(5px);
+            max-width: 1000px; /* Mantener ancho anterior */
+        }
+
+        .main-title {
+             font-size: 2.5em;
+             font-weight: bold;
+             color: var(--accent-green);
+             margin-bottom: 30px;
+             text-shadow: 0 0 10px rgba(51, 255, 153, 0.5);
+             text-align: center;
+        }
+
+        #song-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            width: 100%;
+            max-height: none;
+            overflow-y: visible;
+            border: none;
+            padding: 0;
+            background-color: transparent;
+            margin-bottom: 30px;
+        }
+
+        .song-item {
+            background: var(--card-gradient-1);
+            padding: 20px;
+            border-radius: 10px;
+            border: 3px solid transparent;
+            cursor: pointer;
+            transition: transform 0.2s ease-out, border-color 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .song-item:nth-child(odd) { background: var(--card-gradient-2); }
+        .song-item:hover { transform: translateY(-5px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4); }
+        .song-item.selected { border: var(--selected-border); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(51, 255, 153, 0.3); }
+        .song-item .selected-badge { display: none; position: absolute; top: 10px; right: 10px; background-color: var(--accent-green); color: var(--text-dark); padding: 3px 8px; border-radius: 5px; font-size: 0.8em; font-weight: bold; }
+        .song-item.selected .selected-badge { display: block; }
+        .song-item h3 { font-size: 1.4em; margin-bottom: 5px; color: var(--text-light); }
+        .song-item .song-artist { font-size: 0.9em; color: var(--text-medium); margin-bottom: 15px; font-style: italic; }
+        .song-item .song-details { display: flex; justify-content: space-between; font-size: 0.9em; color: var(--text-medium); margin-bottom: 10px; }
+        .song-item .song-description { font-size: 0.9em; color: var(--text-light); line-height: 1.4; }
+
+        #selection-info { text-align: center; margin-bottom: 25px; }
+        #selection-info p { font-size: 1.1em; color: var(--text-medium); }
+        #selection-info strong { font-size: 1.3em; color: var(--text-light); display: block; margin-top: 5px; }
+
+        #start-game-button {
+            margin-top: 0; padding: 15px 40px; font-size: 1.4em; font-weight: bold; cursor: pointer; background-color: var(--accent-green); color: var(--text-dark); border: none; border-radius: 8px; transition: background-color 0.3s ease, transform 0.1s ease, box-shadow 0.3s ease; box-shadow: 0 4px 10px rgba(51, 255, 153, 0.3);
+        }
+        #start-game-button:hover:not(:disabled) { background-color: var(--accent-green-dark); transform: scale(1.03); box-shadow: 0 6px 15px rgba(51, 255, 153, 0.5); }
+        #start-game-button:active:not(:disabled) { transform: scale(0.98); }
+        #start-game-button:disabled { cursor: not-allowed; opacity: 0.4; background-color: #555; color: #999; box-shadow: none; }
+
+        #start-helper-text { margin-top: 15px; font-size: 0.9em; color: var(--text-medium); text-align: center; }
+        /* --- Fin Estilos Pantalla de Inicio --- */
+
+
+        /* --- Pantalla de Juego Estilo Imagen --- */
+        #game-screen {
+            background: var(--game-bg); /* Fondo oscuro degradado */
+            padding-bottom: 80px; /* Espacio extra abajo para controles fijos */
+            justify-content: flex-start; /* Alinear contenido arriba */
+        }
+
+        /* Título "¡Canta!" */
+        .game-title {
+            font-size: 2.8em;
+            font-weight: bold;
+            color: var(--text-light);
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+        }
+
+        /* Contenedor principal del juego (área + HUD lateral) */
+        #game-content-wrapper {
+            display: flex;
+            width: 100%;
+            gap: 20px; /* Espacio entre área de juego y HUD lateral */
+            margin-bottom: 20px; /* Espacio antes de controles inferiores */
+        }
+
+        #game-area {
+            flex-grow: 1; /* Ocupa el espacio disponible */
+            height: 350px; /* Un poco más alta */
+            background-color: rgba(10, 5, 25, 0.8); /* Fondo más oscuro para el área */
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--bg-light-purple); /* Borde sutil */
+            border-radius: 8px;
+        }
+
+        /* HUD Lateral (Próximas notas, etc.) */
+        #side-hud {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 180px; /* Ancho fijo para el HUD lateral */
+            flex-shrink: 0; /* Evitar que se encoja */
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        #upcoming-notes {
+            text-align: center;
+        }
+        #upcoming-notes h4 {
+            margin-bottom: 10px;
+            color: var(--text-medium);
+            font-size: 1em;
+        }
+        #upcoming-notes-list {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            min-height: 40px; /* Espacio reservado */
+        }
+        .upcoming-note-item {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        /* Puntuación y Combo (pueden ir en el HUD lateral o arriba) */
+        #score-combo-hud {
+            text-align: center;
+            background-color: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 5px;
+        }
+         #score-combo-hud .hud-item {
+             margin: 5px 0;
+             font-size: 1.1em;
+         }
+         #score-combo-hud span {
+             color: var(--accent-green);
+             font-weight: bold;
+         }
+
+
+        /* Estilo del Pentagrama */
+        #staff { display: none; } /* Ocultar pentagrama de líneas por ahora */
+
+        /* Notas Individuales */
+        .note-block {
+            position: absolute; /* Necesario para posicionar con transform */
+            height: 25px; /* Más altas */
+            border-radius: 5px;
+            background-color: #e5a540; /* Naranja/Amarillo como en la imagen */
+            border: 1px solid #f0c060;
+            color: var(--text-dark); /* Texto oscuro para contraste */
+            font-weight: bold;
+            font-size: 12px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+             transition: background-color 0.1s ease, border-color 0.1s ease;
+             will-change: transform; /* Usaremos transform para mover */
+             /* left: auto; No usar left */
+             /* top: auto; No usar top directamente */
+             /* La posición se controla con transform: translate(...) en JS */
+             display: flex; /* Para centrar texto si es necesario */
+             align-items: center;
+             justify-content: center;
+             padding: 0 5px; /* Padding interno para el texto */
+        }
+        .note-block.correct { background-color: var(--accent-green); border-color: lightgreen; color: var(--text-dark); }
+        .note-block.incorrect { background-color: var(--accent-red); border-color: lightcoral; color: var(--text-light); }
+
+        /* Línea de "Hit" */
+        #hit-line {
+            position: absolute; /* Necesario */
+            left: 15%; /* Más a la izquierda como en la imagen */
+            width: 100%; /* Ocupa todo el ancho */
+            height: 4px; /* Más gruesa */
+            top: 50%; /* Centrada verticalmente (aproximado) */
+            transform: translateY(-50%);
+            background-color: var(--pitch-indicator-color); /* Roja como el indicador de pitch */
+            box-shadow: 0 0 8px rgba(255, 77, 77, 0.7);
+            z-index: 5; /* Debajo de las notas */
+        }
+
+        /* Indicador de Tono del Usuario */
+        #pitch-indicator {
+            position: absolute; /* Necesario */
+            left: 15%; /* Alineado con la nueva hit-line */
+            width: 60px; /* Más corto */
+            height: 25px; /* Misma altura que las notas */
+            /* margin-left: -30px; No necesario si usamos transform */
+            background-color: transparent; /* Sin fondo propio */
+            border: 3px solid var(--text-light); /* Borde blanco */
+            border-radius: 5px;
+            box-shadow: none;
+            z-index: 20;
+            transform: translate(-50%, -50%); /* Centrar el indicador en su posición */
+            transition: top 0.05s linear; /* La transición de top sigue siendo útil */
+            display: none; /* Oculto por defecto */
+        }
+
+        /* Controles Inferiores Fijos */
+        #game-controls-footer {
+            position: absolute; /* Fijo en la parte inferior */
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Fondo oscuro para controles */
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #333;
+        }
+
+        #game-controls-left, #game-controls-center, #game-controls-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #game-controls-center {
+            flex-grow: 1; /* Ocupa espacio central */
+            justify-content: center;
+        }
+        #game-controls-right {
+             justify-content: flex-end;
+        }
+
+        #game-controls-footer button {
+            padding: 8px 15px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        #game-controls-footer button:active {
+             transform: scale(0.95);
+        }
+
+        /* Botones específicos */
+        #back-to-menu-button { background-color: var(--button-red); color: white; }
+        #back-to-menu-button:hover { background-color: var(--button-red-hover); }
+        /* #restart-button { background-color: var(--button-blue); color: white; } /* Estilo para botón futuro */
+        /* #restart-button:hover { background-color: var(--button-blue-hover); } */
+        #pause-resume-button { background-color: var(--button-blue); color: white; width: 100px; text-align: center;} /* Azul para Pausa/Reanudar */
+        #pause-resume-button:hover { background-color: var(--button-blue-hover); }
+
+
+        /* Control de Tempo (Slider) */
+        .tempo-control-slider {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 200px; /* Ancho del control de tempo */
+        }
+        .tempo-control-slider label {
+            font-size: 0.8em;
+            color: var(--text-medium);
+            margin-bottom: 5px;
+        }
+        .tempo-control-slider .tempo-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.7em;
+            color: var(--text-medium);
+            padding: 0 5px; /* Alinear con extremos del slider */
+        }
+        #tempo-slider {
+            width: 100%;
+            cursor: pointer;
+            height: 8px;
+            background: var(--progress-bar-bg);
+            border-radius: 5px;
+            appearance: none; /* Quitar estilo por defecto */
+             -webkit-appearance: none;
+        }
+        /* Estilo del thumb (la bolita) del slider */
+        #tempo-slider::-webkit-slider-thumb {
+            appearance: none;
+             -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        #tempo-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        #tempo-display-value { /* Valor numérico del tempo */
+             font-weight: bold;
+             color: var(--text-light);
+             margin-top: 5px;
+        }
+
+
+        /* Barra de Progreso */
+        #progress-bar-container {
+            width: 150px; /* Ancho de la barra */
+            height: 10px;
+            background-color: var(--progress-bar-bg);
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative; /* Para el texto */
+        }
+        #progress-bar-fill {
+            width: 0%; /* Inicialmente vacía */
+            height: 100%;
+            background-color: var(--progress-bar-fill);
+            border-radius: 5px;
+            transition: width 0.2s linear; /* Animación suave */
+        }
+         #progress-percentage {
+             position: absolute;
+             right: 5px;
+             top: 50%;
+             transform: translateY(-50%);
+             font-size: 0.7em;
+             color: rgba(0,0,0,0.7); /* Texto oscuro sobre la barra */
+             font-weight: bold;
+         }
+         #progress-label {
+             font-size: 0.8em;
+             color: var(--text-medium);
+             margin-left: 5px; /* Espacio a la derecha de la barra */
+         }
+
+
+        /* Mensajes de Error en Juego */
+        #game-error {
+            position: absolute; /* Posicionar sobre el juego */
+            bottom: 90px; /* Encima de los controles inferiores */
+            left: 50%;
+            transform: translateX(-50%);
+            width: auto; /* Ancho automático */
+            max-width: 80%;
+            padding: 10px 20px;
+            background-color: rgba(244, 67, 54, 0.85); /* Rojo más opaco */
+            color: white;
+            border: 1px solid var(--accent-red-dark);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            z-index: 50; /* Asegurar visibilidad */
+        }
+        /* Ocultar HUD original y controles viejos */
+        #hud { display: none; }
+        #game-controls { display: none; }
+
+        /* --- Fin Estilos Pantalla de Juego --- */
+
+        /* Pantalla Final */
+        #end-screen { background: var(--game-bg); } /* Mismo fondo */
+        #end-screen h1 { margin-bottom: 20px; text-align: center; color: var(--accent-green);}
+        #end-screen p { margin: 12px 0; font-size: 1.2em; text-align: center;}
+        #end-screen strong { color: var(--text-light); }
+        #end-screen button { margin: 15px 10px; padding: 10px 20px; cursor: pointer; border: none; border-radius: 5px; transition: background-color 0.3s ease; font-weight: bold; }
+        #play-again-button { background-color: var(--accent-green); color: var(--text-dark); }
+        #play-again-button:hover { background-color: var(--accent-green-dark); }
+        #back-to-selection-button { background-color: var(--button-red); color: white; }
+        #back-to-selection-button:hover { background-color: var(--button-red-hover); }
+
+        /* Ocultar elemento de audio */
+        #song-audio { display: none; }
+
+        /* Media Queries */
+        @media (max-width: 900px) {
+             #game-content-wrapper {
+                 flex-direction: column; /* Apilar área y HUD lateral */
+                 align-items: center;
+             }
+             #side-hud {
+                 width: 100%; /* Ocupar todo el ancho */
+                 flex-direction: row; /* HUD lateral en fila */
+                 justify-content: space-around;
+                 align-items: center;
+             }
+             #game-area {
+                 height: 300px; /* Reducir un poco */
+             }
+        }
+
+        @media (max-width: 768px) {
+             #song-list { grid-template-columns: 1fr; }
+             .main-title { font-size: 2em; }
+             .game-title { font-size: 2em; }
+             #game-controls-footer { padding: 8px 10px; }
+             #game-controls-footer button { padding: 6px 10px; font-size: 0.9em; }
+             .tempo-control-slider { width: 150px; }
+             #progress-bar-container { width: 100px; }
+        }
+
+        @media (max-width: 600px) {
+            .screen { width: 98%; padding: 10px; margin: 10px 5px; }
+            #game-area { height: 250px; }
+            .note-block { height: 20px; font-size: 10px; }
+            #pitch-indicator { height: 20px; width: 50px; /* margin-left: -25px; */ border-width: 2px;} /* Quitar margin-left con transform */
+            #hit-line { height: 3px; }
+            #game-controls-footer { flex-wrap: wrap; justify-content: center; gap: 10px; padding-bottom: 15px;} /* Permitir wrap */
+             #game-controls-left, #game-controls-center, #game-controls-right { width: 100%; justify-content: center; }
+            .tempo-control-slider { width: 180px; } /* Más ancho en móvil */
+            #start-game-button { padding: 12px 30px; font-size: 1.2em; }
+            .song-item h3 { font-size: 1.2em; }
+            .song-item .song-details, .song-item .song-description, .song-item .song-artist { font-size: 0.8em; }
+        }
+
+    </style>
+</head>
+<body>
+    <div id="start-screen" class="screen active">
+        <h1 class="main-title">Song Selection</h1>
+        <div id="song-list">
+            <p style="color: var(--text-medium); grid-column: 1 / -1;">Cargando canciones...</p>
+        </div>
+        <div id="selection-info">
+            <p>Canción seleccionada:</p>
+            <strong id="selected-song-display">Ninguna</strong>
+            <span id="selected-song-artist" style="display: block; font-size: 0.9em; color: var(--text-medium);"></span>
+        </div>
+        <button id="start-game-button" disabled>¡Comenzar a cantar!</button>
+        <p id="start-helper-text">Selecciona una canción y haz clic en este botón para empezar</p>
+        <div id="mic-error" class="error-message" style="display: none;">
+            Error al acceder al micrófono. Asegúrate de permitir el acceso.
+        </div>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <h2 class="game-title">¡Canta!</h2>
+
+        <div id="game-content-wrapper">
+            <div id="game-area">
+                <div id="staff">
+                    <div class="staff-line"></div>
+                    <div class="staff-line"></div>
+                    <div class="staff-line"></div>
+                    <div class="staff-line"></div>
+                    <div class="staff-line"></div>
+                </div>
+                <div id="notes-container">
+                    </div>
+                <div id="hit-line"></div>      <div id="pitch-indicator"></div> </div>
+
+            <div id="side-hud">
+                 <div id="score-combo-hud">
+                     <div class="hud-item">Puntuación: <span id="score-display">0</span></div>
+                     <div class="hud-item">Combo: <span id="combo-display">0</span>x</div>
+                 </div>
+                 <div id="upcoming-notes">
+                     <h4>Próximas notas:</h4>
+                     <div id="upcoming-notes-list">
+                         <span class="upcoming-note-item">...</span>
+                     </div>
+                 </div>
+                 </div>
+        </div>
+
+        <div id="game-controls-footer">
+            <div id="game-controls-left">
+                 <button id="back-to-menu-button">← Volver</button>
+                 </div>
+            <div id="game-controls-center">
+                 <button id="pause-resume-button">Pausar</button>
+            </div>
+            <div id="game-controls-right">
+                 <div class="tempo-control-slider">
+                     <label for="tempo-slider">Velocidad (Tempo)</label>
+                     <input type="range" id="tempo-slider" min="0.25" max="2" step="0.05" value="1"> <div class="tempo-labels">
+                         <span>Lento</span>
+                         <span id="tempo-display-value">1.00x</span> <span>Rápido</span>
+                     </div>
+                 </div>
+                 <div id="progress-bar-container">
+                     <div id="progress-bar-fill"><span id="progress-percentage">0%</span></div>
+                 </div>
+                 <span id="progress-label">Progreso</span>
+                 </div>
+        </div>
+
+        <div id="game-error" class="error-message" style="display: none;"></div>
+    </div>
+
+    <div id="end-screen" class="screen">
+        <h1>¡Canción Terminada! 🎉</h1>
+        <p>Puntuación Final: <strong id="final-score">0</strong></p>
+        <p>Precisión: <strong id="final-precision">0.0</strong>%</p>
+        <p>Combo Máximo: <strong id="final-combo">0</strong>x</p>
+        <div>
+             <button id="play-again-button">Jugar de Nuevo</button>
+             <button id="back-to-selection-button">Selección de Canciones</button>
+        </div>
+    </div>
+
+    <audio id="song-audio"></audio>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 0. CONFIGURACIÓN INICIAL Y VARIABLES GLOBALES ---
+            console.log("DOM cargado, inicializando app...");
+
+            // Elementos del DOM
+            const startScreen = document.getElementById('start-screen');
+            const gameScreen = document.getElementById('game-screen');
+            const endScreen = document.getElementById('end-screen');
+            const songListContainer = document.getElementById('song-list');
+            const selectedSongDisplay = document.getElementById('selected-song-display');
+            const selectedSongArtist = document.getElementById('selected-song-artist');
+            const startGameButton = document.getElementById('start-game-button');
+            const micErrorMessage = document.getElementById('mic-error');
+            const gameErrorMessage = document.getElementById('game-error');
+
+            const scoreDisplay = document.getElementById('score-display');
+            const comboDisplay = document.getElementById('combo-display');
+            // const currentSongTitleDisplay = document.getElementById('current-song-title'); // Ya no se usa este span
+            const gameArea = document.getElementById('game-area');
+            const notesContainer = document.getElementById('notes-container');
+            const hitLine = document.getElementById('hit-line'); // Referencia a la línea roja
+            const pitchIndicator = document.getElementById('pitch-indicator'); // Referencia al contorno blanco
+
+            const pauseResumeButton = document.getElementById('pause-resume-button');
+            const backToMenuButton = document.getElementById('back-to-menu-button');
+            const tempoSlider = document.getElementById('tempo-slider'); // Nuevo slider
+            const tempoDisplayValue = document.getElementById('tempo-display-value'); // Nuevo display numérico
+            const progressBarFill = document.getElementById('progress-bar-fill'); // Barra de progreso
+            const progressPercentage = document.getElementById('progress-percentage'); // % de progreso
+
+            const finalScoreDisplay = document.getElementById('final-score');
+            const finalPrecisionDisplay = document.getElementById('final-precision');
+            const finalComboDisplay = document.getElementById('final-combo');
+            const playAgainButton = document.getElementById('play-again-button');
+            const backToSelectionButton = document.getElementById('back-to-selection-button');
+
+            const audioElement = document.getElementById('song-audio');
+
+            // Estado del Juego
+            let audioContext;
+            let meydaAnalyzer;
+            let micStream;
+            let currentSong = null;
+            let songNotes = [];
+            let visibleNotes = [];
+            let gameState = {
+                isPlaying: false, isPaused: false, score: 0, combo: 0, maxCombo: 0,
+                notesHit: 0, notesMissed: 0, totalNotesInSong: 0, startTime: 0,
+                elapsedTime: 0, tempoMultiplier: 1.0, lastFrameTime: 0,
+                animationFrameId: null, currentPitchHz: 0, currentNoteName: null,
+                currentMidiPitch: null,
+            };
+
+            // Constantes y Configuración
+            const A4_PITCH = 69; const A4_FREQ = 440.0;
+            const NOTE_NAMES_ES = ["Do", "Do#", "Re", "Re#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
+            const HIT_LINE_PERCENT = 15; // Ajustado a la nueva posición visual
+            const PIXELS_PER_SECOND = 120; // Un poco más rápido para compensar pantalla más ancha
+            const PITCH_TOLERANCE_SEMITONES = 0.75;
+            let GAME_AREA_HEIGHT = 350; // Ajustado a la nueva altura
+            const NOTE_RANGE_MIDI_MIN = 48; const NOTE_RANGE_MIDI_MAX = 84;
+            const MEYDA_BUFFER_SIZE = 1024;
+
+            // --- 1. FUNCIONES DE UTILIDAD ---
+            function freqToMidi(freq) { if (freq <= 0) return null; return 12 * (Math.log2(freq / A4_FREQ)) + A4_PITCH; }
+            function midiToNoteName(midi) { if (midi === null || midi < 0) return null; const rMidi = Math.round(midi); return NOTE_NAMES_ES[rMidi % 12] + (Math.floor(rMidi / 12) - 1); }
+            function mapRange(v, iMin, iMax, oMin, oMax) { const cV = Math.max(iMin, Math.min(v, iMax)); return (cV - iMin) * (oMax - oMin) / (iMax - iMin) + oMin; }
+            function calculateNoteYPosition(midiPitch) { return mapRange(midiPitch, NOTE_RANGE_MIDI_MIN, NOTE_RANGE_MIDI_MAX, 90, 10); } // 90% abajo, 10% arriba
+            function showErrorMessage(el, msg) { el.textContent = msg; el.style.display = 'block'; console.error("Error displayed:", msg); }
+            function hideErrorMessage(el) { el.style.display = 'none'; }
+            function showScreen(screenToShow) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); screenToShow.classList.add('active'); console.log(`Switched to screen: ${screenToShow.id}`); }
+            function updateGameAreaHeight() { GAME_AREA_HEIGHT = gameArea.clientHeight; }
+            updateGameAreaHeight(); window.addEventListener('resize', updateGameAreaHeight);
+
+            // --- 2. MANEJO DE AUDIO Y MICRÓFONO ---
+            async function setupAudio() {
+                 if (audioContext && audioContext.state === 'running') return true; // Simplificado
+                 if (audioContext) await stopAudioProcessing();
+                 console.log("Setting up AudioContext and Microphone...");
+                 try {
+                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                     if (audioContext.state === 'suspended') await audioContext.resume();
+                     micStream = await navigator.mediaDevices.getUserMedia({ audio: {}, video: false });
+                     const micSourceNode = audioContext.createMediaStreamSource(micStream);
+                     meydaAnalyzer = Meyda.createMeydaAnalyzer({ audioContext, source: micSourceNode, bufferSize: MEYDA_BUFFER_SIZE, featureExtractors: ["spectralPitch"], callback: handlePitchData });
+                     console.log("Audio setup complete."); hideErrorMessage(micErrorMessage); return true;
+                 } catch (err) {
+                     console.error("Error setting up audio/microphone:", err);
+                     let userMessage = `Error micrófono: ${err.message}.`;
+                     if (err.name === 'NotAllowedError') userMessage = "Acceso al micrófono denegado. Revisa permisos.";
+                     else if (err.name === 'NotFoundError') userMessage = "Micrófono no encontrado.";
+                     showErrorMessage(micErrorMessage, userMessage);
+                     await stopAudioProcessing(); // Asegurar limpieza
+                     return false;
+                 }
+            }
+            function handlePitchData(features) {
+                const pitch = features.spectralPitch;
+                gameState.currentPitchHz = (pitch !== null && pitch > 0) ? pitch : 0;
+                gameState.currentMidiPitch = freqToMidi(gameState.currentPitchHz);
+                gameState.currentNoteName = midiToNoteName(gameState.currentMidiPitch);
+            }
+            async function stopAudioProcessing() {
+                console.log("Stopping audio processing...");
+                if (meydaAnalyzer) { meydaAnalyzer.stop(); meydaAnalyzer = null; }
+                if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+                audioElement.pause(); audioElement.removeAttribute('src'); audioElement.load();
+                if (audioContext && audioContext.state !== 'closed') {
+                    await audioContext.close().catch(e => console.error("Ctx close err:", e));
+                }
+                audioContext = null; console.log("Audio processing stopped.");
+            }
+
+            // --- 3. CARGA Y PARSEO DE CANCIONES ---
+             const availableSongs = [ // Asegúrate que estos archivos existan!
+                 { id: 'cancion1', title: 'Estrellita Dónde Estás', artist: 'Canción Infantil', audioSrc: 'songs/cancion1/audio.mp3', notesSrc: 'songs/cancion1/notes.json', difficulty: '3/10', duration: '0:20', description: 'Una melodía familiar perfecta para principiantes.' },
+                 { id: 'cancion2', title: 'Escala Vocal', artist: 'Modo Práctica', audioSrc: 'songs/cancion2/audio.ogg', notesSrc: 'songs/cancion2/notes.json', difficulty: '1/10', duration: '0:15', description: 'Una escala simple para practicar precisión.' },
+                 { id: 'cancion3', title: 'Rema Tu Barca', artist: 'Tradicional', audioSrc: 'songs/cancion3/audio.mp3', notesSrc: 'songs/cancion3/notes.json', difficulty: '5/10', duration: '0:20', description: 'Intervalos variados y sección rápida.' }
+             ];
+            function displaySongList() {
+                songListContainer.innerHTML = '';
+                if (availableSongs.length === 0) { songListContainer.innerHTML = '<p style="color: var(--text-medium); grid-column: 1 / -1;">No hay canciones disponibles.</p>'; return; }
+                availableSongs.forEach(song => {
+                    const item = document.createElement('div'); item.classList.add('song-item'); item.dataset.songId = song.id;
+                    item.innerHTML = `<div class="selected-badge">Selected</div><h3>${song.title}</h3><div class="song-artist">${song.artist}</div><div class="song-details"><span>Difficulty: ${song.difficulty}</span><span>Duration: ${song.duration}</span></div><p class="song-description">${song.description}</p>`;
+                    item.addEventListener('click', () => selectSong(song.id)); songListContainer.appendChild(item);
+                }); console.log("Song list displayed.");
+            }
+            function selectSong(songId) {
+                currentSong = availableSongs.find(s => s.id === songId) || null;
+                if (currentSong) {
+                    selectedSongDisplay.textContent = `${currentSong.title}`; selectedSongArtist.textContent = `${currentSong.artist}`; startGameButton.disabled = false; console.log(`Song selected: ${currentSong.title}`);
+                    document.querySelectorAll('.song-item').forEach(item => item.classList.toggle('selected', item.dataset.songId === songId));
+                } else {
+                    selectedSongDisplay.textContent = "Ninguna"; selectedSongArtist.textContent = ""; startGameButton.disabled = true; console.log("No song selected.");
+                    document.querySelectorAll('.song-item').forEach(item => item.classList.remove('selected'));
+                }
+            }
+            async function loadSongData(notesSrc) {
+                console.log(`Loading notes from: ${notesSrc}`);
+                try {
+                    const response = await fetch(notesSrc); if (!response.ok) throw new Error(`HTTP error! ${response.status}`);
+                    const data = await response.json(); if (!data || !Array.isArray(data.notes)) throw new Error("Invalid JSON format");
+                    songNotes = data.notes.map((note, index) => {
+                        if (typeof note.startTime !== 'number' || typeof note.duration !== 'number' || typeof note.pitchMidi !== 'number') return null;
+                        return { id: `note-${currentSong.id}-${index}`, startTime: note.startTime / 1000.0, duration: note.duration / 1000.0, pitchMidi: note.pitchMidi, noteName: midiToNoteName(note.pitchMidi), element: null, isVisible: false, isScored: false, isCorrect: null };
+                    }).filter(note => note !== null);
+                    gameState.totalNotesInSong = songNotes.length; console.log(`Loaded ${songNotes.length} notes.`); return true;
+                } catch (error) {
+                    console.error("Error loading notes:", error); showErrorMessage(gameErrorMessage, `Error notas (${notesSrc}): ${error.message}`); songNotes = []; gameState.totalNotesInSong = 0; return false;
+                }
+            }
+
+            // --- 4. LÓGICA DEL JUEGO ---
+            async function startGame() {
+                console.log("Attempting start..."); if (!currentSong) { console.error("No song"); return; }
+                stopGame(); resetGameState(); notesContainer.innerHTML = ''; hideErrorMessage(gameErrorMessage);
+                const audioReady = await setupAudio(); if (!audioReady) { console.error("Audio fail"); startGameButton.disabled = false; selectSong(null); showScreen(startScreen); return; }
+                const notesLoaded = await loadSongData(currentSong.notesSrc); if (!notesLoaded) { console.error("Notes fail"); await stopAudioProcessing(); startGameButton.disabled = false; selectSong(null); showScreen(startScreen); return; }
+                audioElement.src = currentSong.audioSrc; audioElement.currentTime = 0; audioElement.playbackRate = gameState.tempoMultiplier;
+                updateHUD(); // Actualizar HUD lateral inicial
+                showScreen(gameScreen);
+                audioElement.oncanplay = () => {
+                    audioElement.oncanplay = null; // Evitar múltiples llamadas
+                    audioElement.play().then(() => {
+                        if (meydaAnalyzer) meydaAnalyzer.start();
+                        gameState.isPlaying = true; gameState.isPaused = false; gameState.startTime = performance.now(); gameState.lastFrameTime = gameState.startTime;
+                        pauseResumeButton.textContent = "Pausar"; hideErrorMessage(gameErrorMessage);
+                        gameState.animationFrameId = requestAnimationFrame(gameLoop); console.log("Game loop started.");
+                    }).catch(e => { console.error("Play err:", e); showErrorMessage(gameErrorMessage, `Play err: ${e.message}`); stopAudioProcessing(); showScreen(startScreen); });
+                };
+                audioElement.onerror = (e) => { console.error("Audio load err:", e); showErrorMessage(gameErrorMessage, `Audio load err ${currentSong.audioSrc}`); stopAudioProcessing(); showScreen(startScreen); };
+                audioElement.load(); console.log("Audio loading...");
+            }
+            function resetGameState() {
+                console.log("Resetting state."); gameState = { ...gameState, isPlaying: false, isPaused: false, score: 0, combo: 0, maxCombo: 0, notesHit: 0, notesMissed: 0, totalNotesInSong: 0, startTime: 0, elapsedTime: 0, currentPitchHz: 0, currentMidiPitch: null, currentNoteName: null, animationFrameId: null };
+                songNotes = []; visibleNotes = [];
+                if (gameState.animationFrameId) cancelAnimationFrame(gameState.animationFrameId);
+                pitchIndicator.style.display = 'none'; pitchIndicator.style.top = '50%';
+                progressBarFill.style.width = '0%'; progressPercentage.textContent = '0%';
+                updateHUD();
+            }
+            function gameLoop(timestamp) {
+                if (!gameState.isPlaying) { gameState.animationFrameId = null; return; }
+                const deltaTime = (timestamp - gameState.lastFrameTime) / 1000.0; gameState.lastFrameTime = timestamp;
+                if (!gameState.isPaused) {
+                    gameState.elapsedTime = audioElement.currentTime;
+                    updateNotes(gameState.elapsedTime); updatePitchIndicator(); checkCollisions(gameState.elapsedTime); updateHUD(); updateProgressBar();
+                    const duration = audioElement.duration;
+                    if (!isNaN(duration) && duration > 0 && gameState.elapsedTime >= duration - 0.1) { endGame(); return; }
+                }
+                gameState.animationFrameId = requestAnimationFrame(gameLoop);
+            }
+            function updateNotes(currentTime) {
+                const gameAreaWidth = gameArea.clientWidth;
+                const hitLinePositionX = gameAreaWidth * (HIT_LINE_PERCENT / 100.0);
+                const currentPixelsPerSecond = PIXELS_PER_SECOND * gameState.tempoMultiplier;
+
+                songNotes.forEach(note => {
+                    const noteWidthPixels = (note.duration * currentPixelsPerSecond);
+                    const timeToReachHitLineFromRight = (gameAreaWidth - hitLinePositionX) / currentPixelsPerSecond;
+                    const noteAppearTime = note.startTime - timeToReachHitLineFromRight;
+                     const timeToPassHitLineFromLeft = hitLinePositionX / currentPixelsPerSecond;
+                     const noteDisappearTime = note.startTime + note.duration + timeToPassHitLineFromLeft;
+
+                    if (currentTime >= noteAppearTime && currentTime <= noteDisappearTime && !note.element) {
+                        const noteElement = document.createElement('div');
+                        noteElement.classList.add('note-block');
+                        noteElement.style.width = `${Math.max(10, noteWidthPixels)}px`;
+                        noteElement.style.top = `${calculateNoteYPosition(note.pitchMidi)}%`;
+                        noteElement.style.height = '25px';
+                        noteElement.dataset.noteId = note.id;
+                        noteElement.textContent = note.noteName || '';
+
+                        const timeUntilHit = note.startTime - currentTime;
+                        const initialX = hitLinePositionX + (timeUntilHit * currentPixelsPerSecond);
+                        noteElement.style.transform = `translate(-50%, -50%) translateX(${initialX}px)`; // Centrar H y V, luego mover
+
+                        notesContainer.appendChild(noteElement);
+                        note.element = noteElement;
+                        note.isVisible = true;
+                        visibleNotes.push(note);
+                    }
+
+                    if (note.element && note.isVisible) {
+                        const timeSinceHit = currentTime - note.startTime;
+                        const currentX = hitLinePositionX - (timeSinceHit * currentPixelsPerSecond);
+                        note.element.style.transform = `translate(-50%, -50%) translateX(${currentX}px)`;
+
+                        const noteLeftEdgeX = currentX - (noteWidthPixels / 2);
+                         if (noteLeftEdgeX + noteWidthPixels < 0) {
+                             if (note.element) { note.element.remove(); note.element = null; }
+                             note.isVisible = false;
+                         }
+                    }
+                });
+                visibleNotes = visibleNotes.filter(note => note.isVisible);
+            }
+            function updatePitchIndicator() {
+                if (gameState.currentMidiPitch !== null && !gameState.isPaused) {
+                    const yPercent = calculateNoteYPosition(gameState.currentMidiPitch);
+                    // const indicatorHeight = pitchIndicator.offsetHeight; // No necesitamos la altura si usamos transform
+                    // pitchIndicator.style.top = `calc(${yPercent}% - ${indicatorHeight / 2}px)`;
+                    pitchIndicator.style.top = `${yPercent}%`; // Solo ajustar top
+                    pitchIndicator.style.display = 'block';
+                } else {
+                    pitchIndicator.style.display = 'none';
+                }
+            }
+            function checkCollisions(currentTime) {
+                const gameAreaWidth = gameArea.clientWidth;
+                const hitLinePositionX = gameAreaWidth * (HIT_LINE_PERCENT / 100.0);
+                const userMidiPitch = gameState.currentMidiPitch;
+
+                visibleNotes.forEach(note => {
+                    if (!note.element || note.isScored) return;
+
+                     const timeSinceHit = currentTime - note.startTime;
+                     const currentPixelsPerSecond = PIXELS_PER_SECOND * gameState.tempoMultiplier;
+                     const currentX = hitLinePositionX - (timeSinceHit * currentPixelsPerSecond);
+                     const noteWidthPixels = parseFloat(note.element.style.width);
+                     const noteCenterX = currentX;
+                     const noteLeft = noteCenterX - noteWidthPixels / 2;
+                     const noteRight = noteCenterX + noteWidthPixels / 2;
+
+                    const hitTolerance = noteWidthPixels * 0.5;
+                    const isOverlapping = (hitLinePositionX >= noteLeft - hitTolerance) && (hitLinePositionX <= noteRight + hitTolerance);
+
+                    const noteEndTime = note.startTime + note.duration;
+                    const isWithinTime = currentTime >= note.startTime && currentTime <= noteEndTime;
+
+                    if (isOverlapping && isWithinTime && !gameState.isPaused) {
+                        let correctPitch = false;
+                        if (userMidiPitch !== null) {
+                            const pitchDifference = Math.abs(userMidiPitch - note.pitchMidi);
+                            if (pitchDifference <= PITCH_TOLERANCE_SEMITONES) correctPitch = true;
+                        }
+                        if (correctPitch) {
+                            if (note.isCorrect !== true) {
+                                note.element.classList.add('correct'); note.element.classList.remove('incorrect');
+                                gameState.score += 10 * (gameState.combo + 1); gameState.combo++;
+                                if (gameState.combo > gameState.maxCombo) gameState.maxCombo = gameState.combo;
+                                note.isCorrect = true;
+                            }
+                        } else {
+                             if (note.isCorrect !== false) {
+                                note.element.classList.add('incorrect'); note.element.classList.remove('correct');
+                                gameState.combo = 0; note.isCorrect = false;
+                             }
+                        }
+                    } else if (!isOverlapping && note.isCorrect !== null) {
+                         if(note.element) note.element.classList.remove('correct', 'incorrect');
+                    }
+
+                    // Final Judgement
+                     if (currentTime > noteEndTime && !note.isScored) {
+                         if (note.isCorrect === true) gameState.notesHit++;
+                         else gameState.notesMissed++;
+                         note.isScored = true;
+                         if(note.element) note.element.classList.remove('correct', 'incorrect');
+                         console.log(`Note ${note.id} judged: ${note.isCorrect ? 'HIT' : 'MISSED'}`);
+                     }
+                });
+            }
+            function updateHUD() {
+                scoreDisplay.textContent = gameState.score;
+                comboDisplay.textContent = `${gameState.combo}x`;
+            }
+             function updateProgressBar() {
+                 const duration = audioElement.duration;
+                 if (!isNaN(duration) && duration > 0) {
+                     const progress = (gameState.elapsedTime / duration) * 100;
+                     const progressClamped = Math.min(100, Math.max(0, progress));
+                     progressBarFill.style.width = `${progressClamped}%`;
+                     progressPercentage.textContent = `${Math.round(progressClamped)}%`;
+                 } else {
+                     progressBarFill.style.width = '0%';
+                     progressPercentage.textContent = `0%`;
+                 }
+             }
+            function pauseGame() { if (!gameState.isPlaying || gameState.isPaused) return; console.log("Pausing..."); gameState.isPaused = true; audioElement.pause(); if (meydaAnalyzer) meydaAnalyzer.stop(); pauseResumeButton.textContent = "Reanudar"; }
+            function resumeGame() { if (!gameState.isPlaying || !gameState.isPaused) return; console.log("Resuming..."); gameState.isPaused = false; gameState.lastFrameTime = performance.now(); audioElement.play().catch(e => console.error("Resume err:", e)); if (meydaAnalyzer) meydaAnalyzer.start(); pauseResumeButton.textContent = "Pausar"; if (!gameState.animationFrameId) gameState.animationFrameId = requestAnimationFrame(gameLoop); }
+            function applyTempo(tempoValue) {
+                 tempoValue = parseFloat(tempoValue);
+                 if (isNaN(tempoValue)) return;
+                 tempoValue = Math.max(0.25, Math.min(2.0, tempoValue));
+                 gameState.tempoMultiplier = tempoValue;
+                 audioElement.playbackRate = gameState.tempoMultiplier;
+                 tempoDisplayValue.textContent = `${gameState.tempoMultiplier.toFixed(2)}x`;
+                 console.log(`Tempo changed to: ${gameState.tempoMultiplier}x`);
+            }
+            function goBackToMenu() { console.log("Back to menu..."); stopGame(); showScreen(startScreen); selectSong(null); }
+            function stopGame() {
+                console.log("Stopping game..."); gameState.isPlaying = false; gameState.isPaused = false;
+                if (gameState.animationFrameId) { cancelAnimationFrame(gameState.animationFrameId); gameState.animationFrameId = null; }
+                stopAudioProcessing().catch(e => console.error("Stop audio err:", e));
+                notesContainer.innerHTML = ''; visibleNotes = []; console.log("Notes cleared.");
+            }
+            function endGame() {
+                console.log("Ending game..."); if (!gameState.isPlaying) return;
+                stopGame();
+                finalScoreDisplay.textContent = gameState.score; finalComboDisplay.textContent = `${gameState.maxCombo}x`;
+                const totalJudged = gameState.notesHit + gameState.notesMissed;
+                const precision = totalJudged > 0 ? (gameState.notesHit / totalJudged) * 100 : 0;
+                finalPrecisionDisplay.textContent = precision.toFixed(1) + '%';
+                console.log(`End. Score: ${gameState.score}, Combo: ${gameState.maxCombo}, Precision: ${precision.toFixed(1)}%`);
+                showScreen(endScreen);
+            }
+
+            // --- 5. EVENT LISTENERS ---
+            startGameButton.addEventListener('click', async () => { console.log("Start click"); startGameButton.disabled = true; startGameButton.textContent = "Cargando..."; try { await startGame(); } catch (e) { console.error("Start exec err:", e); startGameButton.disabled = false; } finally { startGameButton.textContent = "¡Comenzar a cantar!"; } });
+            pauseResumeButton.addEventListener('click', () => { if (gameState.isPaused) resumeGame(); else pauseGame(); });
+            backToMenuButton.addEventListener('click', goBackToMenu);
+            tempoSlider.addEventListener('input', (e) => applyTempo(e.target.value)); // Usar input para cambio continuo
+            playAgainButton.addEventListener('click', async () => { console.log("Play Again"); if(currentSong) { startGameButton.disabled = true; startGameButton.textContent = "Cargando..."; await startGame(); } else { goBackToMenu(); } });
+            backToSelectionButton.addEventListener('click', goBackToMenu);
+            audioElement.addEventListener('ended', () => { console.log("Audio ended"); if (gameState.isPlaying && !gameState.isPaused) endGame(); });
+
+            // --- 6. INICIALIZACIÓN ---
+            function initializeApp() {
+                console.log("Initializing..."); displaySongList(); selectSong(null); showScreen(startScreen); updateHUD();
+                tempoDisplayValue.textContent = `${gameState.tempoMultiplier.toFixed(2)}x`; // Inicializar display de tempo
+                tempoSlider.value = gameState.tempoMultiplier; // Sincronizar slider inicial
+                console.log("App initialized.");
+            }
+            initializeApp();
+        });
+    </script>
+</body>
+</html>
